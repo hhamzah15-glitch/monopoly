@@ -1,0 +1,1364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>Monopoly Bank</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+    :root {
+      --green-darkest: #0a2e10;
+      --green-dark: #0f3d1a;
+      --green: #1B5E20;
+      --green-light: #2E7D32;
+      --gold: #FFD700;
+      --gold-dark: #F59E0B;
+      --red: #B71C1C;
+      --red-light: #EF4444;
+      --cream: #FFFDE7;
+      --white: #ffffff;
+      --card-bg: rgba(255,255,255,0.06);
+      --card-border: rgba(255,215,0,0.18);
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--green-darkest);
+      background-image:
+        radial-gradient(ellipse at 15% 40%, rgba(27,94,32,0.9) 0%, transparent 55%),
+        radial-gradient(ellipse at 85% 15%, rgba(46,125,50,0.5) 0%, transparent 50%),
+        repeating-linear-gradient(45deg, transparent, transparent 40px, rgba(255,215,0,0.015) 40px, rgba(255,215,0,0.015) 41px);
+      min-height: 100vh;
+      color: var(--cream);
+      overscroll-behavior: none;
+    }
+
+    /* ── Screens ── */
+    .screen { display: none; min-height: 100vh; flex-direction: column; }
+    .screen.active { display: flex; }
+
+    /* ── Header ── */
+    .header {
+      background: linear-gradient(135deg, var(--green-light) 0%, var(--green) 100%);
+      border-bottom: 2px solid var(--gold);
+      padding: 13px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+    }
+    .header-logo {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.15rem;
+      font-weight: 900;
+      color: var(--gold);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+    .header-sub {
+      font-size: 0.68rem;
+      color: rgba(255,253,231,0.6);
+      letter-spacing: 1.5px;
+      margin-top: 1px;
+    }
+    .header-right { display: flex; align-items: center; gap: 10px; }
+
+    .notif-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      position: relative;
+      padding: 6px;
+      line-height: 1;
+    }
+    .notif-badge {
+      position: absolute;
+      top: 2px; right: 2px;
+      background: var(--red-light);
+      color: #fff;
+      font-size: 9px;
+      font-weight: 700;
+      min-width: 15px;
+      height: 15px;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      padding: 0 3px;
+    }
+
+    /* ── Landing ── */
+    .landing {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 24px 20px;
+    }
+    .logo { text-align: center; margin-bottom: 36px; }
+    .logo-hat { font-size: 3.5rem; display: block; margin-bottom: 6px; }
+    .logo-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 2.4rem;
+      font-weight: 900;
+      color: var(--gold);
+      letter-spacing: 5px;
+      text-transform: uppercase;
+      text-shadow: 0 0 40px rgba(255,215,0,0.35);
+    }
+    .logo-sub {
+      font-size: 0.75rem;
+      color: rgba(255,253,231,0.5);
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      margin-top: 4px;
+    }
+
+    /* ── Card ── */
+    .card {
+      background: rgba(255,255,255,0.055);
+      border: 1px solid var(--card-border);
+      border-radius: 18px;
+      padding: 26px 22px;
+      width: 100%;
+      max-width: 380px;
+      backdrop-filter: blur(12px);
+    }
+    .card-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--gold);
+      text-transform: uppercase;
+      letter-spacing: 2.5px;
+      margin-bottom: 22px;
+      text-align: center;
+      border-bottom: 1px solid rgba(255,215,0,0.15);
+      padding-bottom: 12px;
+    }
+
+    /* ── Forms ── */
+    .form-group { margin-bottom: 16px; }
+    label {
+      display: block;
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: rgba(255,253,231,0.6);
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      margin-bottom: 6px;
+    }
+    input[type="text"], input[type="number"] {
+      width: 100%;
+      background: rgba(0,0,0,0.25);
+      border: 1px solid rgba(255,215,0,0.25);
+      border-radius: 9px;
+      padding: 11px 14px;
+      color: var(--cream);
+      font-size: 1rem;
+      font-family: 'Inter', sans-serif;
+      outline: none;
+      transition: border-color 0.2s;
+      -webkit-appearance: none;
+    }
+    input:focus { border-color: var(--gold); }
+    input::placeholder { color: rgba(255,253,231,0.25); }
+
+    /* ── Role Selector ── */
+    .role-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .role-option {
+      display: flex; flex-direction: column; align-items: center;
+      padding: 14px 10px;
+      border: 2px solid rgba(255,215,0,0.2);
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: rgba(0,0,0,0.15);
+      user-select: none;
+    }
+    .role-option:hover { border-color: rgba(255,215,0,0.45); }
+    .role-option.selected { border-color: var(--gold); background: rgba(255,215,0,0.1); }
+    .role-icon { font-size: 1.8rem; margin-bottom: 5px; }
+    .role-name { font-size: 0.72rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
+
+    /* ── Buttons ── */
+    .btn {
+      padding: 13px 16px;
+      border: none;
+      border-radius: 10px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      font-family: 'Inter', sans-serif;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.18s;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+    .btn-block { width: 100%; }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--gold) 0%, var(--gold-dark) 100%);
+      color: #1a1a1a;
+      box-shadow: 0 3px 14px rgba(255,215,0,0.28);
+    }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 5px 18px rgba(255,215,0,0.38); }
+    .btn-primary:active { transform: translateY(0); }
+    .btn-danger { background: linear-gradient(135deg, #EF4444 0%, var(--red) 100%); color: #fff; }
+    .btn-outline {
+      background: transparent;
+      border: 1.5px solid rgba(255,215,0,0.35);
+      color: var(--cream);
+    }
+    .btn-outline:hover { border-color: var(--gold); background: rgba(255,215,0,0.06); }
+    .btn-give {
+      background: rgba(76,175,80,0.18);
+      border: 1px solid rgba(76,175,80,0.4);
+      color: #a5d6a7;
+      font-size: 0.7rem;
+      padding: 7px 10px;
+      border-radius: 7px;
+    }
+    .btn-give:hover { background: rgba(76,175,80,0.32); }
+    .btn-take {
+      background: rgba(183,28,28,0.18);
+      border: 1px solid rgba(183,28,28,0.4);
+      color: #ef9a9a;
+      font-size: 0.7rem;
+      padding: 7px 10px;
+      border-radius: 7px;
+    }
+    .btn-take:hover { background: rgba(183,28,28,0.32); }
+
+    /* ── Dashboard ── */
+    .dashboard { flex: 1; padding: 16px; overflow-y: auto; padding-bottom: 90px; }
+
+    /* ── Balance Card ── */
+    .balance-card {
+      background: linear-gradient(135deg, rgba(255,215,0,0.13) 0%, rgba(255,215,0,0.04) 100%);
+      border: 2px solid rgba(255,215,0,0.38);
+      border-radius: 22px;
+      padding: 28px 22px 24px;
+      text-align: center;
+      margin-bottom: 20px;
+      position: relative;
+      overflow: hidden;
+    }
+    .balance-card::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: radial-gradient(circle at 50% 30%, rgba(255,215,0,0.06) 0%, transparent 65%);
+      pointer-events: none;
+    }
+    .balance-label {
+      font-size: 0.66rem; font-weight: 700;
+      letter-spacing: 3px; text-transform: uppercase;
+      color: rgba(255,215,0,0.65); margin-bottom: 8px;
+    }
+    .balance-amount {
+      font-family: 'Playfair Display', serif;
+      font-size: 3.2rem; font-weight: 900;
+      color: var(--gold);
+      text-shadow: 0 0 30px rgba(255,215,0,0.4);
+      line-height: 1; word-break: break-all;
+    }
+    .balance-amount.negative { color: var(--red-light); text-shadow: 0 0 30px rgba(239,68,68,0.35); }
+    .balance-name { font-size: 0.8rem; color: rgba(255,253,231,0.5); margin-top: 8px; letter-spacing: 1px; }
+
+    /* ── Section Title ── */
+    .section-title {
+      font-size: 0.65rem; font-weight: 700;
+      letter-spacing: 3px; text-transform: uppercase;
+      color: rgba(255,215,0,0.55);
+      margin-bottom: 10px; margin-top: 22px;
+    }
+    .divider { height: 1px; background: rgba(255,215,0,0.1); margin: 18px 0; }
+
+    /* ── Players Grid ── */
+    .players-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+      gap: 10px;
+    }
+    .player-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 14px 12px;
+      text-align: center;
+    }
+    .player-card-name {
+      font-weight: 600; font-size: 0.92rem;
+      margin-bottom: 4px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .player-card-balance {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.35rem; font-weight: 700;
+      color: var(--gold); margin-bottom: 10px;
+    }
+    .player-card-balance.negative { color: var(--red-light); }
+    .player-card-actions { display: flex; gap: 5px; justify-content: center; }
+
+    /* ── Transaction List ── */
+    .tx-list { display: flex; flex-direction: column; gap: 7px; }
+    .tx-item {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 11px;
+      padding: 11px 13px;
+      display: flex; align-items: center; gap: 11px;
+    }
+    .tx-icon {
+      width: 34px; height: 34px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.95rem; flex-shrink: 0;
+    }
+    .tx-icon.in { background: rgba(76,175,80,0.2); }
+    .tx-icon.out { background: rgba(183,28,28,0.2); }
+    .tx-info { flex: 1; min-width: 0; }
+    .tx-parties {
+      font-size: 0.83rem; font-weight: 600;
+      color: var(--cream);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .tx-meta {
+      font-size: 0.71rem; color: rgba(255,253,231,0.45);
+      margin-top: 2px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .tx-amount { font-family: 'Playfair Display', serif; font-weight: 700; font-size: 0.98rem; flex-shrink: 0; }
+    .tx-amount.in { color: #81C784; }
+    .tx-amount.out { color: #E57373; }
+    .tx-amount.neutral { color: var(--gold); }
+
+    /* ── Pending Panel ── */
+    .pending-panel {
+      background: rgba(255,215,0,0.07);
+      border: 1px solid rgba(255,215,0,0.22);
+      border-radius: 14px;
+      padding: 14px;
+      margin-bottom: 8px;
+    }
+    .pending-title {
+      font-size: 0.66rem; font-weight: 700; letter-spacing: 2.5px;
+      text-transform: uppercase; color: rgba(255,215,0,0.7);
+      margin-bottom: 12px;
+    }
+    .pending-item {
+      background: rgba(0,0,0,0.2);
+      border: 1px solid rgba(255,215,0,0.2);
+      border-radius: 10px;
+      padding: 12px 13px;
+      margin-bottom: 8px;
+    }
+    .pending-item:last-child { margin-bottom: 0; }
+    .pending-from { font-size: 0.8rem; color: rgba(255,253,231,0.65); margin-bottom: 3px; }
+    .pending-amt {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.5rem; font-weight: 700; color: var(--gold);
+    }
+    .pending-note { font-size: 0.73rem; color: rgba(255,253,231,0.45); font-style: italic; margin-top: 2px; }
+    .pending-actions { display: flex; gap: 8px; margin-top: 10px; }
+    .pending-actions .btn { flex: 1; padding: 9px 12px; }
+
+    /* ── FAB ── */
+    .fab {
+      position: fixed; bottom: 26px; right: 20px;
+      width: 58px; height: 58px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--gold) 0%, var(--gold-dark) 100%);
+      border: none; font-size: 1.4rem; cursor: pointer;
+      box-shadow: 0 4px 20px rgba(255,215,0,0.4);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 45; transition: all 0.2s;
+    }
+    .fab:hover { transform: scale(1.08); box-shadow: 0 6px 24px rgba(255,215,0,0.5); }
+    .fab:active { transform: scale(0.97); }
+
+    /* ── Modal ── */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.72);
+      z-index: 100;
+      align-items: flex-end; justify-content: center;
+      backdrop-filter: blur(5px);
+    }
+    .modal-overlay.active { display: flex; }
+    .modal-sheet {
+      background: #152e18;
+      border: 1px solid rgba(255,215,0,0.22);
+      border-radius: 24px 24px 0 0;
+      padding: 20px 20px 40px;
+      width: 100%; max-width: 480px;
+      max-height: 88vh; overflow-y: auto;
+      animation: slideUp 0.28s cubic-bezier(.22,.68,0,1.2);
+    }
+    @keyframes slideUp {
+      from { transform: translateY(100%); opacity: 0; }
+      to   { transform: translateY(0);    opacity: 1; }
+    }
+    .modal-handle {
+      width: 38px; height: 4px;
+      background: rgba(255,255,255,0.18);
+      border-radius: 2px;
+      margin: 0 auto 18px;
+    }
+    .modal-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.25rem; font-weight: 700;
+      color: var(--gold); margin-bottom: 18px; text-align: center;
+    }
+    .modal-actions { display: flex; gap: 10px; margin-top: 14px; }
+    .modal-actions .btn { flex: 1; }
+
+    /* ── Send Steps ── */
+    .step-dots { display: flex; justify-content: center; gap: 6px; margin-bottom: 16px; }
+    .step-dot { width: 7px; height: 7px; border-radius: 50%; background: rgba(255,215,0,0.25); transition: background 0.2s; }
+    .step-dot.active { background: var(--gold); }
+    .step-label { font-size: 0.68rem; color: rgba(255,253,231,0.55); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 12px; text-align: center; }
+
+    .recipient-list { display: flex; flex-direction: column; gap: 7px; margin-bottom: 16px; }
+    .recipient-option {
+      display: flex; align-items: center; gap: 12px;
+      padding: 11px 13px;
+      border: 1.5px solid rgba(255,255,255,0.1);
+      border-radius: 11px; cursor: pointer;
+      transition: all 0.18s;
+      background: rgba(0,0,0,0.18);
+    }
+    .recipient-option:hover { border-color: rgba(255,215,0,0.4); background: rgba(255,215,0,0.05); }
+    .recipient-option.selected { border-color: var(--gold); background: rgba(255,215,0,0.1); }
+    .recipient-avatar {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: rgba(255,215,0,0.18);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 0.9rem; color: var(--gold); flex-shrink: 0;
+    }
+    .recipient-name { font-weight: 600; font-size: 0.88rem; }
+    .recipient-bal { font-size: 0.72rem; color: rgba(255,253,231,0.45); margin-top: 1px; }
+
+    /* ── Confirm Box ── */
+    .confirm-box {
+      background: rgba(255,215,0,0.07);
+      border: 1px solid rgba(255,215,0,0.2);
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-size: 0.78rem;
+      color: rgba(255,253,231,0.6);
+      text-align: center;
+      margin-bottom: 18px;
+      line-height: 1.5;
+    }
+    .confirm-big {
+      font-family: 'Playfair Display', serif;
+      font-size: 2.6rem; font-weight: 900;
+      color: var(--gold); text-align: center;
+      margin: 12px 0 8px;
+    }
+
+    /* ── Incoming Request Modal ── */
+    .request-modal { background: linear-gradient(145deg, #152e18, #0a2e10); border-color: var(--gold); border-width: 2px; }
+    .request-tag { text-align: center; font-size: 0.65rem; letter-spacing: 3px; color: rgba(255,215,0,0.6); text-transform: uppercase; margin-bottom: 14px; }
+    .request-from { text-align: center; font-size: 0.9rem; color: rgba(255,253,231,0.7); }
+    .request-amount { font-family: 'Playfair Display', serif; font-size: 2.8rem; font-weight: 900; color: var(--gold); text-align: center; margin: 10px 0; }
+    .request-note { text-align: center; font-size: 0.82rem; color: rgba(255,253,231,0.45); font-style: italic; margin-bottom: 22px; }
+
+    /* ── Circulation stat ── */
+    .circ-wrap { text-align: right; }
+    .circ-label { font-size: 0.58rem; color: rgba(255,215,0,0.55); letter-spacing: 1px; text-transform: uppercase; }
+    .circ-val { font-family: 'Playfair Display', serif; color: var(--gold); font-weight: 700; font-size: 1rem; }
+
+    /* ── Toast ── */
+    #toast-container {
+      position: fixed; top: 18px; right: 16px;
+      z-index: 200; display: flex; flex-direction: column; gap: 7px;
+      pointer-events: none; max-width: 290px;
+    }
+    .toast {
+      background: rgba(15,61,26,0.97);
+      border: 1px solid rgba(255,215,0,0.28);
+      border-radius: 10px; padding: 11px 14px;
+      color: var(--cream); font-size: 0.82rem;
+      box-shadow: 0 4px 18px rgba(0,0,0,0.5);
+      animation: toastIn 0.25s ease;
+      pointer-events: auto; line-height: 1.4;
+    }
+    .toast.success { border-left: 3px solid #4CAF50; }
+    .toast.error   { border-left: 3px solid var(--red-light); }
+    .toast.info    { border-left: 3px solid var(--gold); }
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateX(60px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+
+    .empty-state { text-align: center; color: rgba(255,253,231,0.35); font-size: 0.82rem; padding: 22px; font-style: italic; }
+
+    .error-msg { color: var(--red-light); font-size: 0.78rem; text-align: center; margin-top: 10px; display: none; }
+
+    @media (max-width: 360px) {
+      .balance-amount { font-size: 2.6rem; }
+      .players-grid { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════
+     SCREEN: SETUP (banker creates game)
+══════════════════════════════════ -->
+<div id="screen-setup" class="screen">
+  <div class="landing">
+    <div class="logo">
+      <span class="logo-hat">🎩</span>
+      <div class="logo-title">MONOPOLY</div>
+      <div class="logo-sub">Digital Bank</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Open The Bank</div>
+      <div class="form-group">
+        <label>Your Name (Banker)</label>
+        <input type="text" id="setup-name" placeholder="e.g. Rich Uncle" maxlength="20" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label>Starting Balance Per Player ($)</label>
+        <input type="number" id="setup-balance" value="1500" min="100" max="999999">
+      </div>
+      <button class="btn btn-primary btn-block" onclick="createGame()">Open The Bank</button>
+      <div class="error-msg" id="setup-error"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     SCREEN: JOIN
+══════════════════════════════════ -->
+<div id="screen-join" class="screen">
+  <div class="landing">
+    <div class="logo">
+      <span class="logo-hat">🎩</span>
+      <div class="logo-title">MONOPOLY</div>
+      <div class="logo-sub">Digital Bank</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Join Game</div>
+      <div class="form-group">
+        <label>Your Name</label>
+        <input type="text" id="join-name" placeholder="Enter your name" maxlength="20" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label>Role</label>
+        <div class="role-grid">
+          <div class="role-option selected" id="role-player" onclick="selectRole('player')">
+            <span class="role-icon">🧑</span>
+            <span class="role-name">Player</span>
+          </div>
+          <div class="role-option" id="role-banker" onclick="selectRole('banker')">
+            <span class="role-icon">🏦</span>
+            <span class="role-name">Banker</span>
+          </div>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-block" onclick="joinGame()">Join Game</button>
+      <div class="error-msg" id="join-error"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     SCREEN: PLAYER DASHBOARD
+══════════════════════════════════ -->
+<div id="screen-player" class="screen">
+  <div class="header">
+    <div>
+      <div class="header-logo">🎩 MONOPOLY</div>
+      <div class="header-sub" id="player-header-sub">Player</div>
+    </div>
+    <div class="header-right">
+      <button class="notif-btn" id="notif-btn" onclick="togglePendingPanel()" style="display:none;">
+        <span style="font-size:1.35rem;">🔔</span>
+        <span class="notif-badge" id="notif-badge">0</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="dashboard" id="player-dashboard">
+    <!-- Balance -->
+    <div class="balance-card">
+      <div class="balance-label">Your Balance</div>
+      <div class="balance-amount" id="player-balance">$0</div>
+      <div class="balance-name" id="player-balance-name"></div>
+    </div>
+
+    <!-- Pending requests panel (hidden by default) -->
+    <div id="pending-panel" style="display:none; margin-bottom:4px;">
+      <div class="pending-panel">
+        <div class="pending-title">⏳ Incoming Payments</div>
+        <div id="pending-list"></div>
+      </div>
+    </div>
+
+    <!-- Transaction History -->
+    <div class="section-title">Transaction History</div>
+    <div id="player-tx-list" class="tx-list">
+      <div class="empty-state">No transactions yet</div>
+    </div>
+  </div>
+
+  <button class="fab" onclick="openSendModal()" title="Send Money">💸</button>
+</div>
+
+<!-- ══════════════════════════════════
+     SCREEN: BANKER DASHBOARD
+══════════════════════════════════ -->
+<div id="screen-banker" class="screen">
+  <div class="header">
+    <div>
+      <div class="header-logo">🏦 THE BANK</div>
+      <div class="header-sub" id="banker-header-sub">Banker</div>
+    </div>
+    <div class="header-right">
+      <div class="circ-wrap">
+        <div class="circ-label">In Circulation</div>
+        <div class="circ-val" id="total-circ">$0</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="dashboard">
+    <div class="section-title" style="margin-top:6px;">Players</div>
+    <div id="banker-grid" class="players-grid"></div>
+
+    <div class="divider"></div>
+
+    <div class="section-title">All Transactions</div>
+    <div id="banker-tx-list" class="tx-list">
+      <div class="empty-state">No transactions yet</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     MODAL: SEND MONEY (3 steps)
+══════════════════════════════════ -->
+<div id="modal-send" class="modal-overlay" onclick="maybeCloseSend(event)">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">💸 Send Money</div>
+
+    <!-- Step 1: Pick recipient -->
+    <div id="send-s1">
+      <div class="step-dots">
+        <div class="step-dot active"></div><div class="step-dot"></div><div class="step-dot"></div>
+      </div>
+      <div class="step-label">Who are you paying?</div>
+      <div id="recipient-list" class="recipient-list"></div>
+      <button class="btn btn-primary btn-block" onclick="s1Next()">Next →</button>
+    </div>
+
+    <!-- Step 2: Amount + note -->
+    <div id="send-s2" style="display:none;">
+      <div class="step-dots">
+        <div class="step-dot"></div><div class="step-dot active"></div><div class="step-dot"></div>
+      </div>
+      <div class="step-label">Sending to <span id="s2-to-name" style="color:var(--gold);"></span></div>
+      <div class="form-group">
+        <label>Amount ($)</label>
+        <input type="number" id="send-amount" placeholder="0" min="1" max="999999">
+      </div>
+      <div class="form-group">
+        <label>Note (optional)</label>
+        <input type="text" id="send-note" placeholder="e.g. Rent on Boardwalk" maxlength="60">
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-outline" onclick="goStep(1)">← Back</button>
+        <button class="btn btn-primary" onclick="s2Next()">Review →</button>
+      </div>
+    </div>
+
+    <!-- Step 3: Confirm -->
+    <div id="send-s3" style="display:none;">
+      <div class="step-dots">
+        <div class="step-dot"></div><div class="step-dot"></div><div class="step-dot active"></div>
+      </div>
+      <div style="text-align:center;font-size:0.78rem;color:rgba(255,253,231,0.55);">You are sending</div>
+      <div class="confirm-big" id="confirm-amount"></div>
+      <div style="text-align:center;font-size:0.9rem;margin-bottom:4px;">to <strong id="confirm-to"></strong></div>
+      <div style="text-align:center;font-size:0.78rem;color:rgba(255,253,231,0.45);font-style:italic;margin-bottom:20px;" id="confirm-note"></div>
+      <div class="confirm-box" id="confirm-box">
+        🔔 They'll receive a notification and must accept before money moves.
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-outline" onclick="goStep(2)">← Back</button>
+        <button class="btn btn-primary" onclick="submitRequest()">Send Request</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     MODAL: BANKER ACTION (give/take)
+══════════════════════════════════ -->
+<div id="modal-banker" class="modal-overlay" onclick="maybeCloseBanker(event)">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="banker-modal-title">Bank Action</div>
+    <div style="text-align:center;font-size:0.85rem;color:rgba(255,253,231,0.6);margin-bottom:18px;">
+      Player: <span id="banker-modal-player" style="color:var(--gold);font-weight:600;"></span>
+    </div>
+    <div class="form-group">
+      <label>Amount ($)</label>
+      <input type="number" id="banker-amount" placeholder="0" min="1" max="999999">
+    </div>
+    <div class="form-group">
+      <label>Note (optional)</label>
+      <input type="text" id="banker-note" placeholder="e.g. Passed Go, Income Tax" maxlength="60">
+    </div>
+    <button class="btn btn-primary btn-block" onclick="executeBankerAction()">Confirm</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     MODAL: INCOMING PAYMENT REQUEST
+══════════════════════════════════ -->
+<div id="modal-incoming" class="modal-overlay">
+  <div class="modal-sheet request-modal">
+    <div class="modal-handle"></div>
+    <div class="request-tag">💰 Incoming Payment</div>
+    <div class="request-from" id="req-from"></div>
+    <div class="request-amount" id="req-amount"></div>
+    <div class="request-note" id="req-note"></div>
+    <div class="modal-actions">
+      <button class="btn btn-danger" onclick="declineActiveRequest()">✕ Decline</button>
+      <button class="btn btn-primary" onclick="acceptActiveRequest()">✓ Accept</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div id="toast-container"></div>
+
+<script>
+// ─────────────────────────────────────────────
+//  Config
+// ─────────────────────────────────────────────
+const SUPA_URL = 'https://vkbsqexoychvsiafyyxp.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZrYnNxZXhveWNodnNpYWZ5eXhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2MjcwNzgsImV4cCI6MjA5MzIwMzA3OH0.2A-6Fy7bnI_o5JQhlIZtW3I2m1MnCoA6k9onwJSxqH8';
+const db = supabase.createClient(SUPA_URL, SUPA_KEY);
+
+// ─────────────────────────────────────────────
+//  State
+// ─────────────────────────────────────────────
+let me = null;           // current player record
+let game = null;         // active game
+let allPlayers = [];     // all players in this game
+let myTx = [];           // transactions relevant to me
+let pendingReqs = [];    // pending requests where I am to_id
+let activeReq = null;    // request currently shown in incoming modal
+let sendTarget = null;   // selected recipient id in send modal
+let bankerTarget = null; // player targeted in banker modal
+let bankerAction = null; // 'give' | 'take'
+let selectedRole = 'player';
+
+// ─────────────────────────────────────────────
+//  Boot
+// ─────────────────────────────────────────────
+async function init() {
+  // Check for active game
+  const { data: games } = await db.from('game').select('*').eq('is_active', true).limit(1);
+  game = games && games[0] ? games[0] : null;
+
+  if (!game) { showScreen('setup'); return; }
+
+  // Try to restore session from localStorage
+  const savedId = localStorage.getItem('mono_pid');
+  if (savedId) {
+    const { data: p } = await db.from('players').select('*').eq('id', savedId).single();
+    if (p && p.game_id === game.id) {
+      me = p;
+      await afterJoin();
+      return;
+    }
+    localStorage.removeItem('mono_pid');
+  }
+
+  showScreen('join');
+}
+
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+}
+
+// ─────────────────────────────────────────────
+//  Create Game (Banker Setup)
+// ─────────────────────────────────────────────
+async function createGame() {
+  const name = document.getElementById('setup-name').value.trim();
+  const bal  = parseInt(document.getElementById('setup-balance').value);
+  if (!name)      { showErr('setup-error', 'Enter your name'); return; }
+  if (!bal || bal < 100) { showErr('setup-error', 'Balance must be at least $100'); return; }
+
+  const { data: g, error: ge } = await db.from('game')
+    .insert({ starting_balance: bal, is_active: true }).select().single();
+  if (ge) { showErr('setup-error', 'Error: ' + ge.message); console.error('game insert:', ge); return; }
+  game = g;
+
+  const { data: p, error: pe } = await db.from('players')
+    .insert({ name, role: 'banker', balance: 0, game_id: game.id }).select().single();
+  if (pe) { showErr('setup-error', 'Error: ' + pe.message); console.error('player insert:', pe); return; }
+
+  me = p;
+  localStorage.setItem('mono_pid', me.id);
+  await afterJoin();
+}
+
+// ─────────────────────────────────────────────
+//  Join Game
+// ─────────────────────────────────────────────
+function selectRole(r) {
+  selectedRole = r;
+  document.getElementById('role-player').classList.toggle('selected', r === 'player');
+  document.getElementById('role-banker').classList.toggle('selected', r === 'banker');
+}
+
+async function joinGame() {
+  const name = document.getElementById('join-name').value.trim();
+  if (!name) { showErr('join-error', 'Enter your name'); return; }
+
+  if (selectedRole === 'banker') {
+    const { data: existing } = await db.from('players')
+      .select('id').eq('game_id', game.id).eq('role', 'banker');
+    if (existing && existing.length > 0) {
+      showErr('join-error', 'A banker already exists. Join as a Player.'); return;
+    }
+  }
+
+  const { data: p, error } = await db.from('players').insert({
+    name,
+    role: selectedRole,
+    balance: selectedRole === 'player' ? game.starting_balance : 0,
+    game_id: game.id
+  }).select().single();
+
+  if (error) { showErr('join-error', 'Could not join. Try again.'); return; }
+
+  me = p;
+  localStorage.setItem('mono_pid', me.id);
+  await afterJoin();
+}
+
+// ─────────────────────────────────────────────
+//  After joining — load data, realtime, render
+// ─────────────────────────────────────────────
+async function afterJoin() {
+  await loadPlayers();
+  await loadTx();
+  await loadPending();
+  setupRealtime();
+
+  if (me.role === 'banker') {
+    renderBanker();
+    showScreen('banker');
+  } else {
+    renderPlayer();
+    showScreen('player');
+  }
+}
+
+// ─────────────────────────────────────────────
+//  Data loaders
+// ─────────────────────────────────────────────
+async function loadPlayers() {
+  const { data } = await db.from('players').select('*').eq('game_id', game.id).order('created_at');
+  allPlayers = data || [];
+  const fresh = allPlayers.find(p => p.id === me.id);
+  if (fresh) me = fresh;
+}
+
+async function loadTx() {
+  let q = db.from('transactions').select('*').eq('game_id', game.id)
+    .order('created_at', { ascending: false }).limit(60);
+  if (me.role !== 'banker') {
+    q = q.or(`from_id.eq.${me.id},to_id.eq.${me.id}`);
+  }
+  const { data } = await q;
+  myTx = data || [];
+}
+
+async function loadPending() {
+  if (me.role === 'banker') return;
+  const { data } = await db.from('payment_requests')
+    .select('*')
+    .eq('game_id', game.id)
+    .eq('to_id', me.id)
+    .eq('status', 'pending')
+    .order('created_at', { ascending: false });
+  pendingReqs = data || [];
+}
+
+// ─────────────────────────────────────────────
+//  Realtime subscriptions
+// ─────────────────────────────────────────────
+function setupRealtime() {
+  db.channel('mono-live')
+    // Player balance updates
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'players' }, ({ eventType, new: nw, old: ol }) => {
+      if (!nw || nw.game_id !== game.id) return;
+      if (eventType === 'INSERT') {
+        if (!allPlayers.find(p => p.id === nw.id)) allPlayers.push(nw);
+      } else if (eventType === 'UPDATE') {
+        const i = allPlayers.findIndex(p => p.id === nw.id);
+        if (i !== -1) allPlayers[i] = nw; else allPlayers.push(nw);
+        if (nw.id === me.id) me = nw;
+      }
+      refreshUI();
+    })
+    // New transaction
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'transactions' }, ({ new: nw }) => {
+      if (!nw || nw.game_id !== game.id) return;
+      if (me.role === 'banker' || nw.from_id === me.id || nw.to_id === me.id) {
+        myTx.unshift(nw);
+        if (myTx.length > 60) myTx.pop();
+      }
+      refreshUI();
+    })
+    // Incoming payment request
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'payment_requests' }, ({ new: nw }) => {
+      if (!nw || nw.game_id !== game.id) return;
+      if (nw.to_id === me.id && nw.status === 'pending') {
+        pendingReqs.unshift(nw);
+        showIncoming(nw);
+        refreshUI();
+      }
+    })
+    // Payment request status changed
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'payment_requests' }, ({ new: nw }) => {
+      if (!nw || nw.game_id !== game.id) return;
+      // Remove from pending if resolved
+      pendingReqs = pendingReqs.filter(r => r.id !== nw.id);
+      // Notify sender
+      if (nw.from_id === me.id) {
+        const recv = allPlayers.find(p => p.id === nw.to_id);
+        const rname = recv ? recv.name : 'Player';
+        if (nw.status === 'accepted') toast(`${rname} accepted ${fmt(nw.amount)}! ✓`, 'success');
+        else if (nw.status === 'declined') toast(`${rname} declined your payment request.`, 'error');
+      }
+      refreshUI();
+    })
+    .subscribe();
+}
+
+// ─────────────────────────────────────────────
+//  Render
+// ─────────────────────────────────────────────
+function refreshUI() {
+  if (me.role === 'banker') renderBanker();
+  else renderPlayer();
+}
+
+function renderPlayer() {
+  document.getElementById('player-header-sub').textContent = me.name;
+  const balEl = document.getElementById('player-balance');
+  balEl.textContent = fmt(me.balance);
+  balEl.className = 'balance-amount' + (me.balance < 0 ? ' negative' : '');
+  document.getElementById('player-balance-name').textContent = me.name;
+  updateNotifBadge();
+  renderPendingList();
+  renderTxList('player-tx-list', myTx, me.id);
+}
+
+function renderBanker() {
+  document.getElementById('banker-header-sub').textContent = me.name;
+  const players = allPlayers.filter(p => p.role === 'player');
+  const total = players.reduce((s, p) => s + p.balance, 0);
+  document.getElementById('total-circ').textContent = fmt(total);
+
+  const grid = document.getElementById('banker-grid');
+  if (players.length === 0) {
+    grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1">Waiting for players to join…</div>';
+  } else {
+    grid.innerHTML = players.map(p => `
+      <div class="player-card">
+        <div class="player-card-name">${esc(p.name)}</div>
+        <div class="player-card-balance${p.balance < 0 ? ' negative' : ''}">${fmt(p.balance)}</div>
+        <div class="player-card-actions">
+          <button class="btn btn-give" onclick="openBankerModal('${p.id}','give')">+Give</button>
+          <button class="btn btn-take" onclick="openBankerModal('${p.id}','take')">−Take</button>
+        </div>
+      </div>`).join('');
+  }
+  renderTxList('banker-tx-list', myTx, null);
+}
+
+function renderTxList(containerId, txList, myId) {
+  const el = document.getElementById(containerId);
+  if (!txList.length) { el.innerHTML = '<div class="empty-state">No transactions yet</div>'; return; }
+
+  el.innerHTML = '<div class="tx-list">' + txList.map(tx => {
+    const fromP = tx.from_id ? allPlayers.find(p => p.id === tx.from_id) : null;
+    const toP   = tx.to_id   ? allPlayers.find(p => p.id === tx.to_id)   : null;
+    const fromName = fromP ? fromP.name : 'The Bank';
+    const toName   = toP   ? toP.name   : 'The Bank';
+
+    let dir, icon, label, amtClass;
+    if (myId) {
+      dir = tx.to_id === myId ? 'in' : 'out';
+      icon = dir === 'in' ? '💰' : '💸';
+      label = dir === 'in' ? `From ${fromName}` : `To ${toName}`;
+      amtClass = dir;
+    } else {
+      dir = 'in'; icon = '🔄';
+      label = `${fromName} → ${toName}`;
+      amtClass = 'neutral';
+    }
+
+    const sign = myId ? (dir === 'in' ? '+' : '−') : '';
+    const metaParts = [tx.note, ago(tx.created_at)].filter(Boolean);
+
+    return `
+      <div class="tx-item">
+        <div class="tx-icon ${dir}">${icon}</div>
+        <div class="tx-info">
+          <div class="tx-parties">${esc(label)}</div>
+          <div class="tx-meta">${metaParts.map(esc).join(' · ')}</div>
+        </div>
+        <div class="tx-amount ${amtClass}">${sign}${fmt(tx.amount)}</div>
+      </div>`;
+  }).join('') + '</div>';
+}
+
+function renderPendingList() {
+  const list = document.getElementById('pending-list');
+  if (!pendingReqs.length) {
+    list.innerHTML = '<div class="empty-state" style="padding:8px 0;">All clear!</div>';
+    return;
+  }
+  list.innerHTML = pendingReqs.map(req => {
+    const from = allPlayers.find(p => p.id === req.from_id);
+    return `
+      <div class="pending-item">
+        <div class="pending-from">${esc(from ? from.name : 'Someone')} wants to send you</div>
+        <div class="pending-amt">${fmt(req.amount)}</div>
+        ${req.note ? `<div class="pending-note">"${esc(req.note)}"</div>` : ''}
+        <div class="pending-actions">
+          <button class="btn btn-danger" onclick="declineById('${req.id}')">Decline</button>
+          <button class="btn btn-primary" onclick="acceptById('${req.id}')">Accept</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function updateNotifBadge() {
+  const count = pendingReqs.length;
+  const btn   = document.getElementById('notif-btn');
+  const badge = document.getElementById('notif-badge');
+  btn.style.display = count ? 'block' : 'none';
+  badge.textContent = count;
+}
+
+function togglePendingPanel() {
+  const panel = document.getElementById('pending-panel');
+  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+}
+
+// ─────────────────────────────────────────────
+//  Send Money Flow
+// ─────────────────────────────────────────────
+function openSendModal() {
+  sendTarget = null;
+  goStep(1);
+
+  const others = allPlayers.filter(p => p.id !== me.id && p.role !== 'banker');
+  const list = document.getElementById('recipient-list');
+
+  // Always include The Bank as first option
+  const bankOption = `
+    <div class="recipient-option" id="ro-BANK" onclick="pickRecipient('BANK')">
+      <div class="recipient-avatar">🏦</div>
+      <div>
+        <div class="recipient-name">The Bank</div>
+        <div class="recipient-bal">Taxes, properties, fees…</div>
+      </div>
+    </div>`;
+
+  if (!others.length) {
+    list.innerHTML = bankOption + '<div class="empty-state" style="padding:10px 0 0;">No other players yet</div>';
+  } else {
+    list.innerHTML = bankOption + others.map(p => `
+      <div class="recipient-option" id="ro-${p.id}" onclick="pickRecipient('${p.id}')">
+        <div class="recipient-avatar">${p.name[0].toUpperCase()}</div>
+        <div>
+          <div class="recipient-name">${esc(p.name)}</div>
+          <div class="recipient-bal">${fmt(p.balance)}</div>
+        </div>
+      </div>`).join('');
+  }
+
+  document.getElementById('modal-send').classList.add('active');
+}
+
+function pickRecipient(id) {
+  sendTarget = id;
+  document.querySelectorAll('.recipient-option').forEach(el => el.classList.remove('selected'));
+  const el = document.getElementById('ro-' + id);
+  if (el) el.classList.add('selected');
+}
+
+function maybeCloseSend(e) {
+  if (e.target === document.getElementById('modal-send'))
+    document.getElementById('modal-send').classList.remove('active');
+}
+
+function goStep(n) {
+  [1,2,3].forEach(i => {
+    document.getElementById('send-s' + i).style.display = i === n ? 'block' : 'none';
+  });
+}
+
+function s1Next() {
+  if (!sendTarget) { toast('Select a recipient first', 'error'); return; }
+  const p = allPlayers.find(x => x.id === sendTarget);
+  document.getElementById('s2-to-name').textContent = p ? p.name : '';
+  document.getElementById('send-amount').value = '';
+  document.getElementById('send-note').value = '';
+  goStep(2);
+  setTimeout(() => document.getElementById('send-amount').focus(), 100);
+}
+
+function s2Next() {
+  const amt = parseInt(document.getElementById('send-amount').value);
+  if (!amt || amt <= 0) { toast('Enter a valid amount', 'error'); return; }
+  const note = document.getElementById('send-note').value.trim();
+  const p = allPlayers.find(x => x.id === sendTarget);
+  document.getElementById('confirm-amount').textContent = fmt(amt);
+  document.getElementById('confirm-to').textContent = sendTarget === 'BANK' ? 'The Bank' : (p ? p.name : '');
+  document.getElementById('confirm-note').textContent = note || 'No note';
+  document.getElementById('confirm-box').textContent = sendTarget === 'BANK'
+    ? '🏦 This goes directly to The Bank — no confirmation needed.'
+    : '🔔 They\'ll receive a notification and must accept before money moves.';
+  goStep(3);
+}
+
+async function submitRequest() {
+  const amt  = parseInt(document.getElementById('send-amount').value);
+  const note = document.getElementById('send-note').value.trim();
+
+  // Paying the bank: direct transaction, no confirmation needed
+  if (sendTarget === 'BANK') {
+    const { error: e1 } = await db.from('players')
+      .update({ balance: me.balance - amt }).eq('id', me.id);
+    if (e1) { toast('Failed to process payment. Try again.', 'error'); return; }
+
+    await db.from('transactions').insert({
+      game_id: game.id,
+      from_id: me.id,
+      to_id: null,
+      amount: amt,
+      note: note || null
+    });
+
+    me = { ...me, balance: me.balance - amt };
+    document.getElementById('modal-send').classList.remove('active');
+    toast(`Paid ${fmt(amt)} to The Bank`, 'success');
+    await loadPlayers();
+    await loadTx();
+    refreshUI();
+    return;
+  }
+
+  // Player-to-player: send a payment request
+  const { error } = await db.from('payment_requests').insert({
+    game_id: game.id,
+    from_id: me.id,
+    to_id: sendTarget,
+    amount: amt,
+    note: note || null,
+    status: 'pending'
+  });
+
+  if (error) { toast('Failed to send request. Try again.', 'error'); return; }
+  document.getElementById('modal-send').classList.remove('active');
+  toast('Request sent — waiting for them to accept 🔔', 'info');
+}
+
+// ─────────────────────────────────────────────
+//  Incoming Request Modal
+// ─────────────────────────────────────────────
+function showIncoming(req) {
+  activeReq = req;
+  const from = allPlayers.find(p => p.id === req.from_id);
+  document.getElementById('req-from').textContent = `${from ? from.name : 'Someone'} wants to send you`;
+  document.getElementById('req-amount').textContent = fmt(req.amount);
+  document.getElementById('req-note').textContent = req.note ? `"${req.note}"` : '';
+  document.getElementById('modal-incoming').classList.add('active');
+}
+
+async function acceptActiveRequest() {
+  if (!activeReq) return;
+  await acceptById(activeReq.id);
+  document.getElementById('modal-incoming').classList.remove('active');
+  activeReq = null;
+}
+
+async function declineActiveRequest() {
+  if (!activeReq) return;
+  await declineById(activeReq.id);
+  document.getElementById('modal-incoming').classList.remove('active');
+  activeReq = null;
+}
+
+async function acceptById(reqId) {
+  const req  = pendingReqs.find(r => r.id === reqId);
+  if (!req) return;
+  const from = allPlayers.find(p => p.id === req.from_id);
+  if (!from) return;
+
+  // Deduct from sender
+  const { error: e1 } = await db.from('players')
+    .update({ balance: from.balance - req.amount }).eq('id', req.from_id);
+  // Add to me
+  const { error: e2 } = await db.from('players')
+    .update({ balance: me.balance + req.amount }).eq('id', me.id);
+
+  if (e1 || e2) { toast('Error processing payment', 'error'); return; }
+
+  // Record transaction
+  await db.from('transactions').insert({
+    game_id: game.id,
+    from_id: req.from_id,
+    to_id: me.id,
+    amount: req.amount,
+    note: req.note
+  });
+
+  // Mark request accepted
+  await db.from('payment_requests').update({ status: 'accepted' }).eq('id', req.id);
+
+  // Optimistic local update
+  pendingReqs = pendingReqs.filter(r => r.id !== req.id);
+  me = { ...me, balance: me.balance + req.amount };
+  const fi = allPlayers.findIndex(p => p.id === from.id);
+  if (fi !== -1) allPlayers[fi] = { ...from, balance: from.balance - req.amount };
+
+  updateNotifBadge();
+  renderPendingList();
+  toast(`Received ${fmt(req.amount)} from ${from.name} ✓`, 'success');
+  refreshUI();
+}
+
+async function declineById(reqId) {
+  await db.from('payment_requests').update({ status: 'declined' }).eq('id', reqId);
+  pendingReqs = pendingReqs.filter(r => r.id !== reqId);
+  updateNotifBadge();
+  renderPendingList();
+  toast('Payment declined.', 'info');
+}
+
+// ─────────────────────────────────────────────
+//  Banker Actions
+// ─────────────────────────────────────────────
+function openBankerModal(playerId, type) {
+  bankerTarget = playerId;
+  bankerAction = type;
+  const p = allPlayers.find(x => x.id === playerId);
+  document.getElementById('banker-modal-title').textContent = type === 'give' ? '💰 Give Money' : '🏦 Collect Money';
+  document.getElementById('banker-modal-player').textContent = p ? p.name : '';
+  document.getElementById('banker-amount').value = '';
+  document.getElementById('banker-note').value = '';
+  document.getElementById('modal-banker').classList.add('active');
+  setTimeout(() => document.getElementById('banker-amount').focus(), 100);
+}
+
+function maybeCloseBanker(e) {
+  if (e.target === document.getElementById('modal-banker'))
+    document.getElementById('modal-banker').classList.remove('active');
+}
+
+async function executeBankerAction() {
+  const amt  = parseInt(document.getElementById('banker-amount').value);
+  const note = document.getElementById('banker-note').value.trim();
+  if (!amt || amt <= 0) { toast('Enter a valid amount', 'error'); return; }
+
+  const target = allPlayers.find(p => p.id === bankerTarget);
+  if (!target) return;
+
+  const newBal = bankerAction === 'give'
+    ? target.balance + amt
+    : target.balance - amt;
+
+  const { error } = await db.from('players').update({ balance: newBal }).eq('id', bankerTarget);
+  if (error) { toast('Error updating balance', 'error'); return; }
+
+  await db.from('transactions').insert({
+    game_id: game.id,
+    from_id: bankerAction === 'give' ? null : bankerTarget,
+    to_id:   bankerAction === 'give' ? bankerTarget : null,
+    amount: amt,
+    note: note || null
+  });
+
+  document.getElementById('modal-banker').classList.remove('active');
+  const verb = bankerAction === 'give' ? 'Gave' : 'Collected';
+  const prep = bankerAction === 'give' ? 'to' : 'from';
+  toast(`${verb} ${fmt(amt)} ${prep} ${target.name}`, 'success');
+  await loadPlayers();
+  await loadTx();
+  refreshUI();
+}
+
+// ─────────────────────────────────────────────
+//  Utilities
+// ─────────────────────────────────────────────
+function fmt(n) {
+  const abs = Math.abs(n);
+  return (n < 0 ? '-' : '') + '$' + abs.toLocaleString('en-US');
+}
+
+function esc(str) {
+  const d = document.createElement('div');
+  d.appendChild(document.createTextNode(String(str)));
+  return d.innerHTML;
+}
+
+function ago(iso) {
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1)  return 'just now';
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+
+function toast(msg, type = 'info') {
+  const c = document.getElementById('toast-container');
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.textContent = msg;
+  c.appendChild(t);
+  setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'opacity 0.3s'; setTimeout(() => t.remove(), 300); }, 3500);
+}
+
+function showErr(id, msg) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.style.display = 'block';
+  setTimeout(() => { el.style.display = 'none'; }, 4000);
+}
+
+// ─────────────────────────────────────────────
+//  Go
+// ─────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
