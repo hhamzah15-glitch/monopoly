@@ -567,6 +567,11 @@
           </div>
         </div>
       </div>
+      <div class="form-group" id="pin-group" style="display:none;">
+        <label>Banker PIN</label>
+        <input type="number" id="join-pin" placeholder="Enter PIN to take over" maxlength="4">
+        <div style="font-size:0.7rem;color:rgba(255,253,231,0.4);margin-top:5px;">A banker already exists — enter the PIN to take over.</div>
+      </div>
       <button class="btn btn-primary btn-block" onclick="joinGame()">Join Game</button>
       <div class="error-msg" id="join-error"></div>
     </div>
@@ -642,6 +647,12 @@
     <div class="section-title">All Transactions</div>
     <div id="banker-tx-list" class="tx-list">
       <div class="empty-state">No transactions yet</div>
+    </div>
+
+    <div style="margin-top:32px;padding-top:20px;border-top:1px solid rgba(255,255,255,0.07);text-align:center;">
+      <button class="btn btn-outline" style="border-color:rgba(239,68,68,0.35);color:#f87171;font-size:0.75rem;padding:10px 20px;" onclick="confirmReset()">
+        ⚠ Reset Game
+      </button>
     </div>
   </div>
 </div>
@@ -743,6 +754,25 @@
   </div>
 </div>
 
+<!-- ══════════════════════════════════
+     MODAL: RESET GAME CONFIRMATION
+══════════════════════════════════ -->
+<div id="modal-reset" class="modal-overlay" onclick="maybeCloseReset(event)">
+  <div class="modal-sheet" style="background:#1a0f0f;border-color:rgba(239,68,68,0.4);">
+    <div class="modal-handle"></div>
+    <div style="text-align:center;font-size:2rem;margin-bottom:12px;">⚠️</div>
+    <div class="modal-title" style="color:#f87171;">Reset Game?</div>
+    <div style="text-align:center;font-size:0.88rem;color:rgba(255,253,231,0.6);line-height:1.6;margin-bottom:24px;">
+      This will <strong style="color:#f87171;">permanently delete</strong> all players, balances, and transaction history.<br><br>
+      Everyone will need to rejoin. This cannot be undone.
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="document.getElementById('modal-reset').classList.remove('active')">Cancel</button>
+      <button class="btn btn-danger" onclick="executeReset()">Yes, Reset Everything</button>
+    </div>
+  </div>
+</div>
+
 <!-- Toast container -->
 <div id="toast-container"></div>
 
@@ -824,10 +854,20 @@ async function createGame() {
 // ─────────────────────────────────────────────
 //  Join Game
 // ─────────────────────────────────────────────
-function selectRole(r) {
+async function selectRole(r) {
   selectedRole = r;
   document.getElementById('role-player').classList.toggle('selected', r === 'player');
   document.getElementById('role-banker').classList.toggle('selected', r === 'banker');
+
+  if (r === 'banker') {
+    const { data: existing } = await db.from('players')
+      .select('id').eq('game_id', game.id).eq('role', 'banker');
+    const pinGroup = document.getElementById('pin-group');
+    pinGroup.style.display = (existing && existing.length > 0) ? 'block' : 'none';
+    document.getElementById('join-pin').value = '';
+  } else {
+    document.getElementById('pin-group').style.display = 'none';
+  }
 }
 
 async function joinGame() {
@@ -837,8 +877,12 @@ async function joinGame() {
   if (selectedRole === 'banker') {
     const { data: existing } = await db.from('players')
       .select('id').eq('game_id', game.id).eq('role', 'banker');
+
     if (existing && existing.length > 0) {
-      showErr('join-error', 'A banker already exists. Join as a Player.'); return;
+      const pin = document.getElementById('join-pin').value.trim();
+      if (pin !== '2026') { showErr('join-error', 'Wrong PIN.'); return; }
+      // Delete old banker
+      await db.from('players').delete().eq('id', existing[0].id);
     }
   }
 
@@ -1353,6 +1397,36 @@ function showErr(id, msg) {
   el.textContent = msg;
   el.style.display = 'block';
   setTimeout(() => { el.style.display = 'none'; }, 4000);
+}
+
+// ─────────────────────────────────────────────
+//  Reset Game
+// ─────────────────────────────────────────────
+function confirmReset() {
+  document.getElementById('modal-reset').classList.add('active');
+}
+
+function maybeCloseReset(e) {
+  if (e.target === document.getElementById('modal-reset'))
+    document.getElementById('modal-reset').classList.remove('active');
+}
+
+async function executeReset() {
+  document.getElementById('modal-reset').classList.remove('active');
+
+  // Cascade delete cleans up players, transactions, payment_requests
+  const { error } = await db.from('game').delete().eq('id', game.id);
+  if (error) { toast('Reset failed: ' + error.message, 'error'); return; }
+
+  localStorage.removeItem('mono_pid');
+  game = null;
+  me = null;
+  allPlayers = [];
+  myTx = [];
+  pendingReqs = [];
+
+  showScreen('setup');
+  toast('Game reset. Start a new game!', 'info');
 }
 
 // ─────────────────────────────────────────────
